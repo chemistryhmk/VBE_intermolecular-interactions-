@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Интерактивный тест: Межмолекулярные связи (Подготовка к VBE)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9;
+            color: #1e293b;
+        }
+        .option-card {
+            transition: all 0.15s ease;
+        }
+        .option-card:hover:not(.disabled) {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        .option-card.selected {
+            border-color: #2563eb;
+            background-color: #dbeafe;
+        }
+        .option-card.correct {
+            border-color: #16a34a !important;
+            background-color: #dcfce7 !important;
+            color: #065f46;
+        }
+        .option-card.incorrect {
+            border-color: #dc2626 !important;
+            background-color: #fee2e2 !important;
+            color: #991b1b;
+        }
+        .option-card.missed {
+            border-color: #d97706 !important;
+            background-color: #fef3c7 !important;
+            border-style: dashed;
+        }
+    </style>
+</head>
+<body class="min-h-screen py-4 px-3 sm:px-6 flex flex-col justify-start">
+
+    <div class="max-w-[1060px] w-full mx-auto">
+        <!-- Balanced Header -->
+        <header class="bg-white rounded-2xl shadow-sm border border-slate-200 px-6 py-4 mb-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <span class="px-3 py-1 bg-blue-50 text-blue-700 text-xs sm:text-sm font-bold uppercase rounded-lg border border-blue-200">
+                        VBE • Химия
+                    </span>
+                    <h1 class="text-lg sm:text-xl font-bold text-slate-900">
+                        Межмолекулярные связи <span class="text-slate-400 font-normal text-base hidden sm:inline">(Tarpmolekuliniai ryšiai)</span>
+                    </h1>
+                </div>
+
+                <!-- Navigation Pills Inline + Progress Counter -->
+                <div class="flex items-center gap-3 ml-auto">
+                    <div class="text-sm font-semibold text-slate-600 bg-slate-100 px-3.5 py-1.5 rounded-xl">
+                        Решено: <span id="answered-count" class="text-blue-600 font-bold">0</span> / 20
+                    </div>
+                    <button onclick="shuffleAllOptions()" title="Перемешать порядок вариантов" class="text-sm font-semibold text-slate-700 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 border border-slate-200 px-3.5 py-1.5 rounded-xl transition flex items-center gap-1.5">
+                        <span>🔀</span> <span>Перемешать</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Question Navigation Pills + Progress Bar -->
+            <div class="flex items-center gap-3 mt-3.5 pt-3.5 border-t border-slate-100">
+                <div id="nav-pills" class="flex flex-wrap gap-1.5 flex-1">
+                    <!-- Pills injected by JS -->
+                </div>
+                <div class="w-28 bg-slate-100 h-2.5 rounded-full overflow-hidden hidden lg:block shrink-0" title="Прогресс прохождения">
+                    <div id="progress-bar" class="bg-blue-600 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Question Card (Natural height, no empty white space gap!) -->
+        <main id="quiz-container" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            
+            <!-- Question & Options Content -->
+            <div class="px-6 sm:px-8 pt-6 pb-5">
+                <!-- Top Meta Row -->
+                <div class="flex items-center justify-between gap-3 mb-3">
+                    <div class="flex items-center gap-2.5">
+                        <span id="q-number" class="text-sm font-bold text-slate-500 uppercase tracking-wider">Вопрос 1 из 20</span>
+                        <span id="q-type-badge" class="px-3 py-1 text-xs sm:text-sm font-semibold rounded-lg bg-blue-50 text-blue-700">Выбор одного ответа</span>
+                    </div>
+                    <button id="hint-btn" onclick="toggleHint()" class="text-sm font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl transition">
+                        <span>💡 Подсказка</span>
+                    </button>
+                </div>
+
+                <!-- Question Title (Large & clear: ~22px) -->
+                <h2 id="q-text" class="text-xl sm:text-[22px] font-bold text-slate-900 mb-5 leading-[1.45]"></h2>
+
+                <!-- Collapsible Hint Box -->
+                <div id="hint-box" class="hidden mb-5 p-4 bg-amber-50 border-l-4 border-amber-400 text-amber-950 rounded-r-xl text-base leading-relaxed"></div>
+
+                <!-- Options / Interactive Container -->
+                <div id="q-interactive" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+                <!-- Explanation / Feedback Box -->
+                <div id="feedback-box" class="hidden mt-5 p-4 sm:p-5 rounded-xl border text-base leading-relaxed">
+                    <div id="feedback-title" class="font-bold text-base sm:text-lg mb-1"></div>
+                    <div id="feedback-text" class="text-slate-800"></div>
+                </div>
+            </div>
+
+            <!-- Action Bar sitting directly below options (sticky at bottom if page ever overflows) -->
+            <div class="sticky bottom-0 bg-slate-50/95 backdrop-blur px-6 sm:px-8 py-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                <button id="prev-btn" onclick="navigate(-1)" class="px-5 py-3 rounded-xl border border-slate-300 bg-white text-slate-700 text-base font-semibold hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition">
+                    ← Назад
+                </button>
+
+                <div id="status-message" class="text-sm sm:text-base font-medium text-slate-500 hidden md:block">
+                    Выберите вариант и нажмите «Проверить ответ»
+                </div>
+
+                <div class="flex items-center gap-3 ml-auto md:ml-0">
+                    <button id="check-btn" onclick="checkCurrentAnswer()" class="px-6 py-3 rounded-xl bg-blue-600 text-white text-base font-semibold hover:bg-blue-700 shadow-sm transition">
+                        Проверить ответ
+                    </button>
+                    <button id="next-btn" onclick="navigate(1)" class="px-6 py-3 rounded-xl bg-slate-900 text-white text-base font-semibold hover:bg-slate-800 transition">
+                        Далее →
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Final Results Screen (Hidden initially) -->
+        <section id="results-screen" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-8 sm:p-10 text-center">
+            <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl font-bold">
+                ✓
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 mb-1">Результаты тестирования</h2>
+            <p class="text-slate-500 text-base mb-6">Тема: Межмолекулярные связи (Tarpmolekuliniai ryšiai)</p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-xl mx-auto mb-6">
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div class="text-xs text-slate-500 uppercase font-semibold">Набрано баллов</div>
+                    <div id="res-score" class="text-3xl font-bold text-blue-600 mt-1">0 / 20</div>
+                </div>
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div class="text-xs text-slate-500 uppercase font-semibold">Точность</div>
+                    <div id="res-percent" class="text-3xl font-bold text-slate-900 mt-1">0%</div>
+                </div>
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div class="text-xs text-slate-500 uppercase font-semibold">Оценка (VBE 10-балл.)</div>
+                    <div id="res-grade" class="text-3xl font-bold text-emerald-600 mt-1">0</div>
+                </div>
+            </div>
+
+            <p id="res-comment" class="text-slate-700 text-base sm:text-lg max-w-2xl mx-auto mb-8 font-medium"></p>
+
+            <div class="flex flex-wrap justify-center gap-3.5">
+                <button onclick="reviewQuiz()" class="px-6 py-3 rounded-xl border border-slate-300 text-slate-700 text-base font-semibold hover:bg-slate-50 transition">
+                    Просмотреть разбор ответов
+                </button>
+                <button onclick="resetQuiz(false)" class="px-6 py-3 rounded-xl bg-blue-600 text-white text-base font-semibold hover:bg-blue-700 transition">
+                    Пройти заново
+                </button>
+                <button onclick="resetQuiz(true)" class="px-6 py-3 rounded-xl bg-indigo-600 text-white text-base font-semibold hover:bg-indigo-700 transition">
+                    🔀 Пройти с новым перемешиванием
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const LETTERS = ['А', 'Б', 'В', 'Г', 'Д'];
+
+        // Questions with thoroughly varied answer positions:
+        // Q1-Q12 single choice indices: C(2), A(0), D(3), B(1), D(3), A(0), C(2), B(1), D(3), A(0), C(2), B(1)
+        // Q13-Q17 multiple choice indices: [0,2,4], [1,3,4], [0,3], [1,2,4], [0,2,3]
+        const questions = [
+            // Q1: correct = 2 (В)
+            {
+                id: 1,
+                type: 'single',
+                question: 'Почему вещества с молекулярным строением не являются газами при абсолютно любой температуре, а способны переходить в жидкое и твердое состояния?',
+                options: [
+                    'Из-за образования прочных ковалентных связей между соседними молекулами при охлаждении.',
+                    'Вследствие увеличения молярной массы каждой отдельной молекулы при понижении температуры.',
+                    'Благодаря наличию сил межмолекулярного притяжения, удерживающих молекулы рядом друг с другом.',
+                    'По причине превращения молекулярной кристаллической решетки в ионную или металлическую.'
+                ],
+                correct: 2,
+                hint: 'Вспомните, что именно удерживает соседние молекулы вместе без изменения их химического состава.',
+                explanation: 'Межмолекулярные связи (притяжение между молекулами) удерживают их вместе при охлаждении. Если бы этого притяжения не существовало, все молекулярные вещества оставались бы газами при любой температуре.'
+            },
+            // Q2: correct = 0 (А)
+            {
+                id: 2,
+                type: 'single',
+                question: 'У какой пары веществ наблюдаются самые слабые межмолекулярные связи в природе и, как следствие, самые низкие температуры плавления и кипения?',
+                options: [
+                    'У гелия (He) и водорода (H<sub>2</sub>)',
+                    'У неона (Ne) и бензола (C<sub>6</sub>H<sub>6</sub>)',
+                    'У кислорода (O<sub>2</sub>) и фтора (F<sub>2</sub>)',
+                    'У метана (CH<sub>4</sub>) и азота (N<sub>2</sub>)'
+                ],
+                correct: 0,
+                hint: 'Посмотрите на таблицу температур плавления и кипения в начале параграфа 3.7.',
+                explanation: 'Самые низкие температуры плавления и кипения у гелия He (−272 °C и −269 °C) и водорода H<sub>2</sub> (−259 °C и −253 °C), так как их частицы содержат минимум протонов и электронов, и дисперсионные силы между ними минимальны.'
+            },
+            // Q3: correct = 3 (Г)
+            {
+                id: 3,
+                type: 'single',
+                question: 'В гомологическом ряду неразветвленных алканов с ростом молярной массы закономерно повышается температура кипения. Что является истинной физической причиной усиления дисперсионных сил (dispersinės jėgos)?',
+                options: [
+                    'Увеличение гравитационного притяжения между более тяжелыми ядрами углерода.',
+                    'Появление постоянных дипольных моментов на концах углеродной цепи при ее удлинении.',
+                    'Уменьшение длины ковалентных связей C–C и C–H в крупных молекулах алканов.',
+                    'Увеличение общего числа протонов и электронов в молекуле, усиливающее взаимное притяжение частиц.'
+                ],
+                correct: 3,
+                hint: 'В учебнике подчеркивается, что причина кроется не в самой массе, а в количестве субатомных частиц.',
+                explanation: 'Чем больше молярная масса, тем больше протонов и электронов в молекуле. Протоны одной молекулы притягивают электроны другой и наоборот — именно рост числа этих частиц усиливает дисперсионные силы.'
+            },
+            // Q4: correct = 1 (Б)
+            {
+                id: 4,
+                type: 'single',
+                question: 'Три изомера состава C<sub>5</sub>H<sub>12</sub> — пентан, 2-метилбутан и 2,2-диметилпропан — имеют одинаковую молярную массу, но кипят при +36 °C, +28 °C и +10 °C соответственно. Почему 2,2-диметилпропан кипит при самой низкой температуре?',
+                options: [
+                    'В его молекуле меньше всего валентных электронов, способных участвовать в притяжении.',
+                    'Его молекула имеет форму, близкую к шару, поэтому площадь соприкосновения соседних молекул минимальна.',
+                    'Боковые метильные группы разрывают ковалентные связи внутри основной цепи при нагревании.',
+                    'Неразветвленный пентан является полярной молекулой, а 2,2-диметилпропан — неполярной.'
+                ],
+                correct: 1,
+                hint: 'Дисперсионные силы действуют только в местах непосредственного соприкосновения молекул (рис. 3.7.3).',
+                explanation: 'Молекула 2,2-диметилпропана компактна и по форме близка к шару. У шарообразных молекул площадь соприкосновения друг с другом минимальна, поэтому дисперсионное притяжение между ними самое слабое (T<sub>кип</sub> = +10 °C).'
+            },
+            // Q5: correct = 3 (Г)
+            {
+                id: 5,
+                type: 'single',
+                question: 'Два изомера гексана (C<sub>6</sub>H<sub>14</sub>) — 2,2-диметилбутан и 2-метилпентан — кипят при температурах 49 °C и 60 °C. Какое из этих соединений кипит при 60 °C и почему?',
+                options: [
+                    '2,2-диметилбутан, так как два метильных радикала создают дополнительное дипольное притяжение.',
+                    '2-метилпентан, так как его молярная масса больше, чем у 2,2-диметилбутана.',
+                    '2,2-диметилбутан, так как шарообразные молекулы плотнее упаковываются в жидкости.',
+                    '2-метилпентан, так как он имеет только одно разветвление, его форма ближе к цилиндру и площадь контакта молекул больше.'
+                ],
+                correct: 3,
+                hint: 'Сравните степень разветвления обоих изомеров (Пример 1 из учебника).',
+                explanation: 'Оба вещества — изомеры гексана с одинаковой молярной массой. У 2-метилпентана всего один метильный заместитель, его форма ближе к цилиндрической, поэтому площадь контакта молекул больше и температура кипения выше (60 °C против 49 °C у более разветвленного 2,2-диметилбутана).'
+            },
+            // Q6: correct = 0 (А)
+            {
+                id: 6,
+                type: 'single',
+                question: 'Почему молекула углекислого газа CO<sub>2</sub> является неполярной, а молекула диоксида серы SO<sub>2</sub> — полярной, хотя обе содержат полярные ковалентные связи?',
+                options: [
+                    'В CO<sub>2</sub> углерод в sp-гибридизации (связи на одной линии под 180° компенсируют друг друга), а в SO<sub>2</sub> сера в sp<sup>2</sup>-гибридизации (угол ~120°).',
+                    'Кислород и углерод имеют одинаковую электроотрицательность, а сера и кислород — разную.',
+                    'В молекуле SO<sub>2</sub> между атомами возникает водородная связь, а в молекуле CO<sub>2</sub> — только ионная.',
+                    'Атом серы в SO<sub>2</sub> находится в состоянии sp-гибридизации, а атом углерода в CO<sub>2</sub> — в состоянии sp<sup>3</sup>-гибридизации.'
+                ],
+                correct: 0,
+                hint: 'Вспомните правило векторного сложения полярности связей (рис. 3.7.6).',
+                explanation: 'Полярность связей складывается как векторы. В линейной молекуле CO<sub>2</sub> (sp-гибридизация) два вектора направлены в противоположные стороны и взаимно гасятся. В угловой молекуле SO<sub>2</sub> (sp<sup>2</sup>, угол ~120°) векторы не компенсируют друг друга.'
+            },
+            // Q7: correct = 2 (В)
+            {
+                id: 7,
+                type: 'single',
+                question: 'Какое условие является обязательным для образования водородной связи (vandenilinis ryšys) между молекулами?',
+                options: [
+                    'Наличие любого атома водорода в молекуле независимо от того, с каким элементом он связан.',
+                    'Расположение трех взаимодействующих атомов под прямым углом (90°) друг к другу.',
+                    'Атом водорода должен быть связан с F, O или N и притягиваться к неподеленной электронной паре F, O или N соседней молекулы на одной прямой (180°).',
+                    'Полный переход электрона от атома водорода к атому углерода соседней молекулы.'
+                ],
+                correct: 2,
+                hint: 'Вспомните три главных элемента высокой электроотрицательности и геометрию мостика O—H···:O.',
+                explanation: 'Водородная связь образуется только тогда, когда водород ковалентно связан с фтором, кислородом или азотом (F, O, N) и направленно притягивается к неподеленной электронной паре F, O или N другой молекулы, выстраиваясь на одной линии (угол 180°).'
+            },
+            // Q8: correct = 1 (Б)
+            {
+                id: 8,
+                type: 'single',
+                question: 'Почему молекулы фторметана (CH<sub>3</sub>F) НЕ образуют водородные связи между собой, хотя в составе молекулы есть и атомы водорода, и самый электроотрицательный элемент — фтор?',
+                options: [
+                    'У атома фтора в молекуле фторметана отсутствуют неподеленные электронные пары.',
+                    'В молекуле CH<sub>3</sub>F все атомы водорода ковалентно связаны с углеродом, а не с фтором, поэтому на них нет достаточного положительного заряда.',
+                    'Молекула CH<sub>3</sub>F является абсолютно симметричной и неполярной.',
+                    'Фтор вообще никогда не способен участвовать в образовании водородных связей.'
+                ],
+                correct: 1,
+                hint: 'Посмотрите на структурную формулу CH<sub>3</sub>F: с каким атомом непосредственно соединены атомы водорода?',
+                explanation: 'Для образования водородной связи атом H должен быть непосредственно связан с F, O или N. В молекуле CH<sub>3</sub>F атомы водорода связаны с углеродом (связь C–H малополярна), поэтому водород не может служить донором водородной связи.'
+            },
+            // Q9: correct = 3 (Г)
+            {
+                id: 9,
+                type: 'single',
+                question: 'На графике водородных соединений элементов 16 (VIA) группы от H<sub>2</sub>Po до H<sub>2</sub>S температура кипения плавно падает, но у воды H<sub>2</sub>O она совершает резкий скачок до +100 °C. Почему?',
+                options: [
+                    'У молекулы воды самая большая молярная масса среди всех гидридов 16-й группы.',
+                    'В молекуле H<sub>2</sub>O ковалентные связи при кипении полностью распадаются на водород и кислород.',
+                    'Между молекулами H<sub>2</sub>S, H<sub>2</sub>Se и H<sub>2</sub>Te действуют прочные водородные связи, ускоряющие их испарение.',
+                    'Между молекулами воды образуется прочная сетка водородных связей, на разрыв которой требуется дополнительная энергия.'
+                ],
+                correct: 3,
+                hint: 'Если бы на воду действовали только дисперсионные силы, она бы кипела при −80 °C (пунктирная линия на рис. 3.7.8).',
+                explanation: 'От H<sub>2</sub>Po к H<sub>2</sub>S падает молярная масса и ослабевают дисперсионные силы. Однако в воде каждая молекула образует до 4 прочных водородных связей, поэтому для перевода воды в пар требуется затратить много дополнительной энергии на их разрыв.'
+            },
+            // Q10: correct = 0 (А)
+            {
+                id: 10,
+                type: 'single',
+                question: 'Почему плотность воды в твердом состоянии (льда) меньше плотности жидкой воды?',
+                options: [
+                    'Во льду все молекулы H<sub>2</sub>O образуют по 4 водородные связи и выстраиваются в шестиугольные кольца, которые занимают больше места (содержат пустоты).',
+                    'При замерзании масса каждой молекулы воды уменьшается из-за потери части электронов.',
+                    'В жидкой воде молекулы находятся на гораздо большем расстоянии друг от друга, чем в кристалле льда.',
+                    'При 0 °C между молекулами льда исчезают водородные связи и остаются только силы отталкивания.'
+                ],
+                correct: 0,
+                hint: 'Посмотрите на архитектуру кристалла льда (рис. 3.7.9 и 3.7.10).',
+                explanation: 'В структуре льда каждая молекула воды жестко связана четырьмя водородными связями с соседями, образуя ажурную трехмерную решетку из шестиугольных колец. Такая упаковка содержит много пустого пространства, поэтому плотность льда ниже плотности жидкой воды.'
+            },
+            // Q11: correct = 2 (В)
+            {
+                id: 11,
+                type: 'single',
+                question: 'Как и почему изменяется растворимость одноатомных спиртов в воде при удлинении углеродной цепи (например, при переходе от этанола C<sub>2</sub>H<sub>5</sub>OH к гептанолу C<sub>7</sub>H<sub>15</sub>OH)?',
+                options: [
+                    'Увеличивается, так как длинный радикал образует больше водородных связей с водой.',
+                    'Не изменяется, так как все спирты растворяются в воде неограниченно благодаря группе —OH.',
+                    'Уменьшается, так как с ростом углеродной цепи усиливается влияние гидрофобной («боящейся воды») части молекулы.',
+                    'Сначала падает до нуля, а у высших спиртов снова становится бесконечной.'
+                ],
+                correct: 2,
+                hint: 'Вспомните противоборство гидрофильной группы —OH и гидрофобного алканового радикала.',
+                explanation: 'Гидрофильная группа —OH обеспечивает растворимость в воде, а углеводородный радикал является гидрофобным и препятствует растворимости. Чем длиннее цепь атомов углерода, тем сильнее доминирует гидрофобная часть и тем хуже спирт растворяется в воде.'
+            },
+            // Q12: correct = 1 (Б)
+            {
+                id: 12,
+                type: 'single',
+                question: 'В чем заключается особенность межмолекулярных связей пропанона (ацетона) CH<sub>3</sub>—CO—CH<sub>3</sub>, объясняющая его низкую температуру кипения (+56 °C) и бесконечную растворимость в воде?',
+                options: [
+                    'Молекулы пропанона образуют водородные связи между собой, но отталкивают молекулы воды.',
+                    'Между собой молекулы пропанона водородных связей не образуют (атомы H связаны с C), но с водой образуют их за счет неподеленных пар электронов кислорода.',
+                    'Пропанон является неполярным углеводородом, который растворяется в воде только за счет дисперсионных сил.',
+                    'В воде пропанон распадается на ионы, а в чистом виде состоит из атомной кристаллической решетки.'
+                ],
+                correct: 1,
+                hint: 'Разберите Пример 2 и рис. 3.7.12: кто выступает донором водорода, а кто предоставляет электронную пару при растворении ацетона в воде?',
+                explanation: 'В молекуле пропанона все атомы H связаны с углеродом, поэтому между собой молекулы пропанона не могут образовать водородные связи (отсюда летучесть, T<sub>кип</sub> = 56 °C). Но атом кислорода пропанона имеет две свободные электронные пары, с которыми связываются атомы водорода молекул воды.'
+            },
+
+            // MULTIPLE CHOICE QUESTIONS (Scattered combinations, never [0,1,2]!)
+            // Q13: correct = [0, 2, 4] (А, В, Д)
+            {
+                id: 13,
+                type: 'multiple',
+                question: 'Выберите ВСЕ верные утверждения, характеризующие дисперсионные силы (dispersinės jėgos):',
+                options: [
+                    'Они действуют абсолютно между всеми молекулами — как неполярными, так и полярными.',
+                    'Они возникают только в веществах, содержащих атомы фтора, кислорода или азота.',
+                    'Это самое слабое межмолекулярное взаимодействие, работающее лишь при непосредственном соприкосновении молекул.',
+                    'При переходе от гелия к бензолу дисперсионные силы полностью исчезают.',
+                    'Их величина зависит от количества электронов и протонов в молекуле, а также от геометрической формы молекулы.'
+                ],
+                correct: [0, 2, 4],
+                hint: 'Здесь 3 верных ответа. Обратите внимание на универсальность дисперсионных сил, их малый радиус действия и зависимость от формы и числа частиц.',
+                explanation: 'Верны ответы А, В и Д: дисперсионные силы универсальны (действуют между всеми молекулами), являются самыми слабыми, проявляются только в местах контакта и усиливаются с ростом числа электронов/протонов и площади соприкосновения.'
+            },
+            // Q14: correct = [1, 3, 4] (Б, Г, Д)
+            {
+                id: 14,
+                type: 'multiple',
+                question: 'Какие условия и характеристики верны для водородной связи (vandenilinis ryšys)? (Выберите ВСЕ верные варианты)',
+                options: [
+                    'Это самый слабый вид межмолекулярного притяжения, уступающий дисперсионным силам.',
+                    'Атом водорода должен быть ковалентно связан с сильно электроотрицательным атомом малого радиуса (F, O или N).',
+                    'Атомы водорода, связанные с углеродом в алканах, легко образуют водородные связи друг с другом.',
+                    'В соседней молекуле должен находиться атом F, O или N, имеющий неподеленную электронную пару.',
+                    'Три атома, образующие мостик (например, O—H···O), располагаются на одной прямой линии под углом 180°.'
+                ],
+                correct: [1, 3, 4],
+                hint: 'Здесь 3 верных утверждения: вспомните донор водорода (связь с F, O, N), акцептор (свободная пара электронов) и угол 180°.',
+                explanation: 'Верны ответы Б, Г и Д: водородная связь — самая сильная из межмолекулярных; она требует связи H с F, O или N, наличия неподеленной пары электронов у соседа и строгой линейной геометрии (180°).'
+            },
+            // Q15: correct = [0, 3] (А, Г)
+            {
+                id: 15,
+                type: 'multiple',
+                question: 'Проанализируйте свойства классов органических соединений (Таблица 3.3 из учебника). Какие из приведенных утверждений являются ВЕРНЫМИ?',
+                options: [
+                    'Карбоновые кислоты образуют водородные связи между собой и имеют более высокую температуру кипения, чем спирты схожей молярной массы.',
+                    'Простые эфиры (eteriai) и сложные эфиры (esteriai) активно образуют прочные водородные связи между своими собственными молекулами.',
+                    'Третичные амины образуют водородные связи между собой, но совершенно не растворяются в воде.',
+                    'Аминокислоты образуют межмолекулярные связи между собой, хорошо растворимы в воде и при комнатной температуре являются твердыми веществами.',
+                    'Альдегиды и кетоны кипят при значительно более высокой температуре, чем спирты с такой же молярной массой.'
+                ],
+                correct: [0, 3],
+                hint: 'В этом вопросе 2 правильных ответа. Помните, что эфиры, альдегиды, кетоны и третичные амины НЕ имеют связей O–H или N–H для связи между собой.',
+                explanation: 'Верны ответы А и Г. Карбоновые кислоты кипят выше спиртов, а аминокислоты — твердые водорастворимые вещества. Простые/сложные эфиры, альдегиды, кетоны и третичные амины не образуют водородных связей между собой.'
+            },
+            // Q16: correct = [1, 2, 4] (Б, В, Д)
+            {
+                id: 16,
+                type: 'multiple',
+                question: 'Какие из перечисленных функциональных групп являются ГИДРОФИЛЬНЫМИ («любящими воду») и повышают растворимость органического соединения в воде?',
+                options: [
+                    'Длинный углеводородный алкановый радикал (—C<sub>10</sub>H<sub>21</sub>)',
+                    'Гидроксильная группа (—OH)',
+                    'Карбоксильная группа (—COOH)',
+                    'Неполярное бензольное кольцо (—C<sub>6</sub>H<sub>5</sub>)',
+                    'Аминогруппа (—NH<sub>2</sub>) и карбонильная группа (>C=O)'
+                ],
+                correct: [1, 2, 4],
+                hint: 'Выберите 3 варианта, содержащие полярные группы с атомами кислорода и азота, способными образовывать водородные связи с водой.',
+                explanation: 'Верны ответы Б, В и Д: гидроксильная, карбоксильная, аминогруппа, карбонильная и эфирная группы являются гидрофильными. Углеводородные радикалы и бензольное кольцо гидрофобны.'
+            },
+            // Q17: correct = [0, 2, 3] (А, В, Г)
+            {
+                id: 17,
+                type: 'multiple',
+                question: 'Какие из перечисленных природных и химических явлений напрямую объясняются образованием водородных связей?',
+                options: [
+                    'Неограниченная растворимость метанола, этанола и пропанона в воде.',
+                    'Высокая растворимость животных жиров в неполярном бензоле.',
+                    'Меньшая плотность твердого льда по сравнению с жидкой водой (лед плавает на воде).',
+                    'Аномально высокая температура кипения воды (+100 °C) по сравнению с сероводородом H<sub>2</sub>S (−60 °C).',
+                    'Газообразное состояние метана и этана при комнатной температуре.'
+                ],
+                correct: [0, 2, 3],
+                hint: 'Здесь 3 верных ответа: свяжите водородную связь со свойствами воды/льда и растворимостью спиртов/кетонов в воде.',
+                explanation: 'Верны ответы А, В и Г. Растворимость жиров в бензоле и газообразность алканов обусловлены слабыми дисперсионными взаимодействиями неполярных молекул, а не водородными связями.'
+            },
+
+            // MATCHING QUESTIONS (with scrambled options)
+            // Q18
+            {
+                id: 18,
+                type: 'matching',
+                question: 'Установите соответствие между молекулой и особенностью её геометрической формы и межмолекулярного контакта (по рис. 3.7.3 и 3.7.6):',
+                pairs: [
+                    {
+                        left: 'Пентан (неразветвленный C<sub>5</sub>H<sub>12</sub>)',
+                        right: 'Цилиндрическая форма: молекулы соприкасаются всей длиной (T кип. = +36 °C)'
+                    },
+                    {
+                        left: '2,2-диметилпропан (разветвленный C<sub>5</sub>H<sub>12</sub>)',
+                        right: 'Шарообразная форма: минимальная площадь соприкосновения (T кип. = +10 °C)'
+                    },
+                    {
+                        left: 'Бензол (C<sub>6</sub>H<sub>6</sub>)',
+                        right: 'Плоская молекула: обеспечивает наибольшую площадь соприкосновения'
+                    },
+                    {
+                        left: 'Диоксид серы (SO<sub>2</sub>)',
+                        right: 'Угловая полярная молекула (~120°): векторы полярности не компенсируют друг друга'
+                    }
+                ],
+                hint: 'Вспомните сравнение шара, цилиндра и плоских блоков на рисунке 3.7.3 учебника.',
+                explanation: 'Шарообразные молекулы (2,2-диметилпропан) имеют минимальный контакт, цилиндрические (пентан) — средний по всей длине, а плоские молекулы (бензол) — максимальную площадь соприкосновения.'
+            },
+            // Q19
+            {
+                id: 19,
+                type: 'matching',
+                question: 'Установите соответствие между классом органических веществ и особенностью образования водородных связей:',
+                pairs: [
+                    {
+                        left: 'Спирты и карбоновые кислоты',
+                        right: 'Образуют водородные связи и между собой, и с водой; имеют высокие T кипения'
+                    },
+                    {
+                        left: 'Альдегиды, кетоны и сложные эфиры',
+                        right: 'Не образуют водородных связей между собой, но образуют их с водой (низкомолекулярные растворимы)'
+                    },
+                    {
+                        left: 'Алканы (метан, этан, пентан)',
+                        right: 'Неполярны; не образуют водородных связей ни между собой, ни с водой (нерастворимы в воде)'
+                    },
+                    {
+                        left: 'Аминокислоты',
+                        right: 'Образуют прочные связи между собой; при комнатной температуре — твердые вещества, растворимые в воде'
+                    }
+                ],
+                hint: 'Ориентируйтесь на наличие связей O–H / N–H (для связи между собой) и наличие свободных пар на O / N (для связи с водой).',
+                explanation: 'Спирты и кислоты связываются и между собой, и с водой; кетоны/эфиры — только с молекулами воды (как акцепторы); алканы — вообще не образуют водородных связей; аминокислоты — твердые водорастворимые вещества.'
+            },
+            // Q20
+            {
+                id: 20,
+                type: 'matching',
+                question: 'Установите соответствие между литовским термином (для экзамена VBE) и его точным определением на русском языке:',
+                pairs: [
+                    {
+                        left: 'Dispersinės jėgos',
+                        right: 'Дисперсионные силы — универсальное слабое притяжение протонов одной молекулы к электронам другой'
+                    },
+                    {
+                        left: 'Vandenilinis ryšys',
+                        right: 'Водородная связь — притяжение атома H (связанного с F, O, N) к неподеленной паре электронов соседа'
+                    },
+                    {
+                        left: 'Hidrofilinė grupė',
+                        right: 'Гидрофильная группа («любящая воду») — полярная часть молекулы, повышающая растворимость в воде'
+                    },
+                    {
+                        left: 'Hidrofobinė grupė',
+                        right: 'Гидрофобная группа («боящаяся воды») — неполярный углеводородный радикал, снижающий растворимость'
+                    }
+                ],
+                hint: 'Vandenilis — водород, hidrofilinė — любящая воду, hidrofobinė — боящаяся воды.',
+                explanation: 'Владение терминами dispersinės jėgos, vandenilinis ryšys, hidrofilinė и hidrofobinė grupė необходимо для успешного решения задач государственного экзамена VBE в Литве.'
+            }
+        ];
+
+        // State management
+        let currentIdx = 0;
+        let userState = [];
+
+        function createScrambledOrder(length) {
+            const indices = Array.from({ length }, (_, i) => i);
+            for (let i = indices.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [indices[i], indices[j]] = [indices[j], indices[i]];
+            }
+            // Avoid identity permutation [0, 1, 2, 3] for matching so it's never 1-to-1 in order
+            if (length > 1 && indices.every((val, idx) => val === idx)) {
+                [indices[0], indices[1]] = [indices[1], indices[0]];
+            }
+            return indices;
+        }
+
+        function initUserState(randomizeOptions = false) {
+            userState = questions.map(q => {
+                if (q.type === 'matching') {
+                    const order = createScrambledOrder(q.pairs.length);
+                    return {
+                        checked: false,
+                        isCorrect: false,
+                        matchingSelections: new Array(q.pairs.length).fill(''),
+                        shuffledRightOptions: order.map(i => q.pairs[i].right)
+                    };
+                } else {
+                    const optionIndices = randomizeOptions
+                        ? createScrambledOrder(q.options.length)
+                        : Array.from({ length: q.options.length }, (_, i) => i);
+                    return {
+                        checked: false,
+                        isCorrect: false,
+                        optionOrder: optionIndices,
+                        selectedSingle: null, // stores original option index
+                        selectedMultiple: []  // stores original option indices
+                    };
+                }
+            });
+        }
+
+        function initQuiz() {
+            initUserState(false);
+            renderNavPills();
+            renderQuestion();
+            updateProgress();
+        }
+
+        function shuffleAllOptions() {
+            userState.forEach((st, idx) => {
+                const q = questions[idx];
+                if (!st.checked) {
+                    if (q.type === 'matching') {
+                        const order = createScrambledOrder(q.pairs.length);
+                        st.shuffledRightOptions = order.map(i => q.pairs[i].right);
+                        st.matchingSelections = new Array(q.pairs.length).fill('');
+                    } else {
+                        st.optionOrder = createScrambledOrder(q.options.length);
+                        st.selectedSingle = null;
+                        st.selectedMultiple = [];
+                    }
+                }
+            });
+            renderQuestion();
+        }
+
+        function renderNavPills() {
+            const container = document.getElementById('nav-pills');
+            container.innerHTML = '';
+            questions.forEach((q, idx) => {
+                const st = userState[idx];
+                const btn = document.createElement('button');
+                btn.textContent = idx + 1;
+                let classes = 'w-9 h-9 rounded-lg text-sm font-bold transition flex items-center justify-center border ';
+
+                if (idx === currentIdx) {
+                    classes += 'ring-2 ring-blue-600 ring-offset-1 ';
+                }
+
+                if (st.checked) {
+                    if (st.isCorrect) {
+                        classes += 'bg-emerald-100 border-emerald-400 text-emerald-800';
+                    } else {
+                        classes += 'bg-red-100 border-red-400 text-red-800';
+                    }
+                } else {
+                    classes += 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100';
+                }
+
+                btn.className = classes;
+                btn.onclick = () => {
+                    currentIdx = idx;
+                    renderQuestion();
+                    renderNavPills();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function renderQuestion() {
+            const q = questions[currentIdx];
+            const st = userState[currentIdx];
+
+            document.getElementById('q-number').textContent = `Вопрос ${currentIdx + 1} из ${questions.length}`;
+
+            const badge = document.getElementById('q-type-badge');
+            if (q.type === 'single') {
+                badge.textContent = 'Выбор одного ответа';
+                badge.className = 'px-3 py-1 text-xs sm:text-sm font-semibold rounded-lg bg-blue-50 text-blue-700';
+            } else if (q.type === 'multiple') {
+                badge.textContent = 'Несколько верных ответов';
+                badge.className = 'px-3 py-1 text-xs sm:text-sm font-semibold rounded-lg bg-purple-50 text-purple-700';
+            } else {
+                badge.textContent = 'На соответствие';
+                badge.className = 'px-3 py-1 text-xs sm:text-sm font-semibold rounded-lg bg-amber-50 text-amber-800';
+            }
+
+            document.getElementById('q-text').innerHTML = q.question;
+
+            // Reset hint box
+            const hintBox = document.getElementById('hint-box');
+            hintBox.classList.add('hidden');
+            hintBox.innerHTML = `<b>Подсказка:</b> ${q.hint}`;
+
+            const container = document.getElementById('q-interactive');
+            container.innerHTML = '';
+
+            if (q.type === 'single') {
+                container.className = 'grid grid-cols-1 md:grid-cols-2 gap-4';
+                renderSingleChoice(q, st, container);
+            } else if (q.type === 'multiple') {
+                container.className = 'grid grid-cols-1 md:grid-cols-2 gap-4';
+                renderMultipleChoice(q, st, container);
+            } else if (q.type === 'matching') {
+                container.className = 'space-y-3';
+                renderMatching(q, st, container);
+            }
+
+            // Status message in footer
+            const statusMsg = document.getElementById('status-message');
+            if (st.checked) {
+                statusMsg.innerHTML = st.isCorrect
+                    ? '<span class="text-emerald-700 font-semibold">✓ Ответ верный! Переходите к следующему вопросу.</span>'
+                    : '<span class="text-red-700 font-semibold">✕ В ответе была ошибка. Изучите разбор выше.</span>';
+            } else {
+                statusMsg.textContent = q.type === 'multiple'
+                    ? 'Отметьте все подходящие варианты и нажмите «Проверить ответ»'
+                    : 'Выберите вариант и нажмите «Проверить ответ»';
+            }
+
+            // Feedback display
+            const fbBox = document.getElementById('feedback-box');
+            const fbTitle = document.getElementById('feedback-title');
+            const fbText = document.getElementById('feedback-text');
+
+            if (st.checked) {
+                fbBox.classList.remove('hidden');
+                if (st.isCorrect) {
+                    fbBox.className = 'mt-5 p-4 sm:p-5 rounded-xl border border-emerald-300 bg-emerald-50/80 text-base leading-relaxed';
+                    fbTitle.className = 'font-bold text-base sm:text-lg text-emerald-800 mb-1';
+                    fbTitle.textContent = '✓ Верно!';
+                } else {
+                    fbBox.className = 'mt-5 p-4 sm:p-5 rounded-xl border border-red-300 bg-red-50/80 text-base leading-relaxed';
+                    fbTitle.className = 'font-bold text-base sm:text-lg text-red-800 mb-1';
+                    fbTitle.textContent = '✕ Обратите внимание на правильное решение:';
+                }
+                fbText.innerHTML = q.explanation;
+            } else {
+                fbBox.classList.add('hidden');
+            }
+
+            // Buttons state
+            document.getElementById('prev-btn').disabled = currentIdx === 0;
+            const checkBtn = document.getElementById('check-btn');
+            checkBtn.style.display = st.checked ? 'none' : 'inline-block';
+
+            const nextBtn = document.getElementById('next-btn');
+            if (currentIdx === questions.length - 1) {
+                nextBtn.textContent = 'Итоги теста ✓';
+                nextBtn.className = 'px-6 py-3 rounded-xl bg-emerald-600 text-white text-base font-semibold hover:bg-emerald-700 transition';
+            } else {
+                nextBtn.textContent = 'Далее →';
+                nextBtn.className = 'px-6 py-3 rounded-xl bg-slate-900 text-white text-base font-semibold hover:bg-slate-800 transition';
+            }
+        }
+
+        function renderSingleChoice(q, st, container) {
+            st.optionOrder.forEach((origIdx, displayPos) => {
+                const optText = q.options[origIdx];
+                const isSelected = st.selectedSingle === origIdx;
+                const isCorrectOption = origIdx === q.correct;
+
+                const card = document.createElement('div');
+                let classes = 'option-card min-h-[88px] border-2 border-slate-200 rounded-xl px-5 py-4 cursor-pointer flex items-center gap-4 ';
+
+                if (st.checked) {
+                    classes += 'disabled cursor-default ';
+                    if (isCorrectOption) {
+                        classes += 'correct ';
+                    } else if (isSelected && !isCorrectOption) {
+                        classes += 'incorrect ';
+                    }
+                } else if (isSelected) {
+                    classes += 'selected ';
+                }
+
+                card.className = classes;
+                card.innerHTML = `
+                    <div class="w-9 h-9 rounded-full border-2 flex items-center justify-center shrink-0 text-base font-bold ${
+                        st.checked && isCorrectOption
+                            ? 'border-emerald-600 bg-emerald-600 text-white'
+                            : st.checked && isSelected && !isCorrectOption
+                            ? 'border-red-600 bg-red-600 text-white'
+                            : isSelected
+                            ? 'border-blue-600 bg-blue-600 text-white'
+                            : 'border-slate-300 text-slate-600 bg-slate-50'
+                    }">
+                        ${st.checked && isCorrectOption ? '✓' : st.checked && isSelected && !isCorrectOption ? '✕' : LETTERS[displayPos]}
+                    </div>
+                    <span class="text-base sm:text-[17.5px] font-medium leading-[1.45]">${optText}</span>
+                `;
+
+                if (!st.checked) {
+                    card.onclick = () => {
+                        st.selectedSingle = origIdx;
+                        renderQuestion();
+                    };
+                }
+                container.appendChild(card);
+            });
+        }
+
+        function renderMultipleChoice(q, st, container) {
+            st.optionOrder.forEach((origIdx, displayPos) => {
+                const optText = q.options[origIdx];
+                const isSelected = st.selectedMultiple.includes(origIdx);
+                const isTarget = q.correct.includes(origIdx);
+
+                const card = document.createElement('div');
+                let classes = 'option-card min-h-[84px] border-2 border-slate-200 rounded-xl px-5 py-4 cursor-pointer flex items-center gap-4 ';
+
+                if (st.checked) {
+                    classes += 'disabled cursor-default ';
+                    if (isSelected && isTarget) {
+                        classes += 'correct ';
+                    } else if (isSelected && !isTarget) {
+                        classes += 'incorrect ';
+                    } else if (!isSelected && isTarget) {
+                        classes += 'missed ';
+                    }
+                } else if (isSelected) {
+                    classes += 'selected ';
+                }
+
+                // Make the 5th option span full width on 2-col desktop grid for visual balance
+                if (st.optionOrder.length === 5 && displayPos === 4) {
+                    classes += 'md:col-span-2 ';
+                }
+
+                card.className = classes;
+                card.innerHTML = `
+                    <div class="w-9 h-9 rounded-lg border-2 flex items-center justify-center shrink-0 text-base font-bold ${
+                        st.checked && isTarget
+                            ? 'border-emerald-600 bg-emerald-600 text-white'
+                            : st.checked && isSelected && !isTarget
+                            ? 'border-red-600 bg-red-600 text-white'
+                            : isSelected
+                            ? 'border-blue-600 bg-blue-600 text-white'
+                            : 'border-slate-300 text-slate-600 bg-slate-50'
+                    }">
+                        ${isSelected || (st.checked && isTarget) ? '✓' : LETTERS[displayPos]}
+                    </div>
+                    <div class="flex-1">
+                        <span class="text-base sm:text-[17.5px] font-medium leading-[1.45]">${optText}</span>
+                        ${st.checked && !isSelected && isTarget ? '<span class="inline-block ml-2 px-2 py-0.5 text-xs font-bold bg-amber-200 text-amber-900 rounded-md">Пропущен верный ответ</span>' : ''}
+                    </div>
+                `;
+
+                if (!st.checked) {
+                    card.onclick = () => {
+                        const pos = st.selectedMultiple.indexOf(origIdx);
+                        if (pos === -1) {
+                            st.selectedMultiple.push(origIdx);
+                        } else {
+                            st.selectedMultiple.splice(pos, 1);
+                        }
+                        renderQuestion();
+                    };
+                }
+                container.appendChild(card);
+            });
+        }
+
+        function renderMatching(q, st, container) {
+            q.pairs.forEach((pair, idx) => {
+                const row = document.createElement('div');
+                let borderClass = 'border-slate-200 bg-slate-50/70';
+
+                if (st.checked) {
+                    if (st.matchingSelections[idx] === pair.right) {
+                        borderClass = 'border-emerald-400 bg-emerald-50/70';
+                    } else {
+                        borderClass = 'border-red-400 bg-red-50/70';
+                    }
+                }
+
+                row.className = `px-5 py-3.5 rounded-xl border-2 ${borderClass} flex flex-col md:flex-row md:items-center justify-between gap-3`;
+
+                const leftDiv = document.createElement('div');
+                leftDiv.className = 'font-semibold text-slate-800 md:w-5/12 text-base sm:text-[17px]';
+                leftDiv.innerHTML = `${idx + 1}. ${pair.left}`;
+
+                const rightDiv = document.createElement('div');
+                rightDiv.className = 'md:w-7/12';
+
+                const select = document.createElement('select');
+                select.className = 'w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100';
+                select.disabled = st.checked;
+
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = '';
+                defaultOpt.textContent = '— Выберите характеристику —';
+                select.appendChild(defaultOpt);
+
+                st.shuffledRightOptions.forEach(optVal => {
+                    const opt = document.createElement('option');
+                    opt.value = optVal;
+                    opt.textContent = optVal;
+                    if (st.matchingSelections[idx] === optVal) {
+                        opt.selected = true;
+                    }
+                    select.appendChild(opt);
+                });
+
+                select.onchange = (e) => {
+                    st.matchingSelections[idx] = e.target.value;
+                };
+
+                rightDiv.appendChild(select);
+
+                if (st.checked && st.matchingSelections[idx] !== pair.right) {
+                    const corrNote = document.createElement('div');
+                    corrNote.className = 'text-sm font-semibold text-emerald-800 mt-1.5';
+                    corrNote.textContent = `✓ Верно: ${pair.right}`;
+                    rightDiv.appendChild(corrNote);
+                }
+
+                row.appendChild(leftDiv);
+                row.appendChild(rightDiv);
+                container.appendChild(row);
+            });
+        }
+
+        function checkCurrentAnswer() {
+            const q = questions[currentIdx];
+            const st = userState[currentIdx];
+            const statusMsg = document.getElementById('status-message');
+
+            if (q.type === 'single') {
+                if (st.selectedSingle === null) {
+                    statusMsg.innerHTML = '<span class="text-amber-600 font-bold">⚠ Сначала выберите один вариант ответа!</span>';
+                    return;
+                }
+                st.isCorrect = (st.selectedSingle === q.correct);
+            } else if (q.type === 'multiple') {
+                if (st.selectedMultiple.length === 0) {
+                    statusMsg.innerHTML = '<span class="text-amber-600 font-bold">⚠ Отметьте хотя бы один вариант ответа!</span>';
+                    return;
+                }
+                const sortedUser = [...st.selectedMultiple].sort((a, b) => a - b);
+                const sortedTarget = [...q.correct].sort((a, b) => a - b);
+                st.isCorrect = JSON.stringify(sortedUser) === JSON.stringify(sortedTarget);
+            } else if (q.type === 'matching') {
+                if (st.matchingSelections.some(val => val === '')) {
+                    statusMsg.innerHTML = '<span class="text-amber-600 font-bold">⚠ Выберите соответствие для каждой строки!</span>';
+                    return;
+                }
+                st.isCorrect = q.pairs.every((pair, i) => st.matchingSelections[i] === pair.right);
+            }
+
+            st.checked = true;
+            updateProgress();
+            renderNavPills();
+            renderQuestion();
+        }
+
+        function updateProgress() {
+            const answered = userState.filter(s => s.checked).length;
+            document.getElementById('answered-count').textContent = answered;
+            const pct = Math.round((answered / questions.length) * 100);
+            document.getElementById('progress-bar').style.width = `${pct}%`;
+        }
+
+        function toggleHint() {
+            const hb = document.getElementById('hint-box');
+            hb.classList.toggle('hidden');
+        }
+
+        function navigate(dir) {
+            if (dir === 1 && currentIdx === questions.length - 1) {
+                showResults();
+                return;
+            }
+            const nextIdx = currentIdx + dir;
+            if (nextIdx >= 0 && nextIdx < questions.length) {
+                currentIdx = nextIdx;
+                renderQuestion();
+                renderNavPills();
+            }
+        }
+
+        function showResults() {
+            document.getElementById('quiz-container').classList.add('hidden');
+            document.getElementById('results-screen').classList.remove('hidden');
+
+            const correctCount = userState.filter(s => s.isCorrect).length;
+            const total = questions.length;
+            const percent = Math.round((correctCount / total) * 100);
+            const grade = Math.max(1, Math.round((correctCount / total) * 10));
+
+            document.getElementById('res-score').textContent = `${correctCount} / ${total}`;
+            document.getElementById('res-percent').textContent = `${percent}%`;
+            document.getElementById('res-grade').textContent = grade;
+
+            let comment = '';
+            if (percent >= 90) {
+                comment = 'Отличный результат! Тема межмолекулярных связей, аномалий воды и растворимости органических веществ усвоена на уровне государственного экзамена VBE.';
+            } else if (percent >= 70) {
+                comment = 'Хороший результат! Большинство закономерностей усвоено верно, но стоит просмотреть вопросы, отмеченные красным цветом.';
+            } else if (percent >= 50) {
+                comment = 'Базовый уровень достигнут. Рекомендуется повторить условия образования водородной связи и влияние формы молекулы на температуру кипения.';
+            } else {
+                comment = 'Рекомендуется повторить конспект урока и пройти тренажер еще раз, обращая внимание на подсказки и разборы.';
+            }
+            document.getElementById('res-comment').textContent = comment;
+        }
+
+        function reviewQuiz() {
+            document.getElementById('results-screen').classList.add('hidden');
+            document.getElementById('quiz-container').classList.remove('hidden');
+            currentIdx = 0;
+            renderQuestion();
+            renderNavPills();
+        }
+
+        function resetQuiz(randomize = false) {
+            initUserState(randomize);
+            currentIdx = 0;
+            document.getElementById('results-screen').classList.add('hidden');
+            document.getElementById('quiz-container').classList.remove('hidden');
+            updateProgress();
+            renderNavPills();
+            renderQuestion();
+        }
+
+        window.onload = initQuiz;
+    </script>
+</body>
+</html>
